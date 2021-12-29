@@ -43,6 +43,7 @@ jobs:
             exit 1
           fi
       - name: Publish beta package
+        id: publish-beta-package
         if: steps.check-if-package.outcome == 'success'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -72,9 +73,9 @@ jobs:
 
     # Set outputs at the job level, to reference in other jobs.
     outputs:
-      commit: ${{ steps.set-env-vars.outputs.commit }}
-      dist-tag: ${{ steps.set-env-vars.outputs.dist-tag }}
-      tag: ${{ steps.set-env-vars.outputs.tag }}
+      commit: ${{ steps.publish-beta-package.outputs.commit }}
+      dist-tag: ${{ steps.publish-beta-package.outputs.dist-tag }}
+      tag: ${{ steps.publish-beta-package.outputs.tag }}
       published-beta: steps.check-if-package.outcome == 'success'
 
   comment:
