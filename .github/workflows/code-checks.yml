@@ -42,9 +42,10 @@ jobs:
             echo 'No `publishConfig` found in package.json. Not publishing a beta package.'
             exit 1
           fi
-      - name: Set environment variables
+      - name: Publish beta package
         if: steps.check-if-package.outcome == 'success'
-        id: set-env-vars
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           COMMIT=$(echo ${{ github.event.pull_request.head.sha }} | cut -c 1-7)
           PR=pr${{ github.event.number }}
@@ -52,25 +53,23 @@ jobs:
 
           # Make a package number in the format: 0.1.0-pr1-abcd123
           TAG=$VERSION-$PR-$COMMIT
+          DIST_TAG=$PR
 
-          # Set step outputs, to reference later in the job outputs.
-          echo "::set-output name=commit::$COMMIT"
-          echo "::set-output name=dist-tag::$PR"
-          echo "::set-output name=tag::$TAG"
-      - name: Publish beta package
-        if: steps.check-if-package.outcome == 'success'
-        run: |
           # Bump the version in the package.json and package-lock.json, but don't commit it.
-          npm version --no-git-tag-version ${{ steps.set-env-vars.outputs.tag }}
+          npm version --no-git-tag-version $TAG
 
           # Then publish the tag and dist-tag to Github Packages.
           echo "Publishing with:"
-          echo "  tag: ${{ steps.set-env-vars.outputs.tag }}"
-          echo "  dist-tag: ${{ steps.set-env-vars.outputs.dist-tag }}"
+          echo "  tag: $TAG"
+          echo "  dist-tag: $DIST_TAG"
 
-          npm publish --tag ${{ steps.set-env-vars.outputs.dist-tag }}
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          npm publish --tag $DIST_TAG
+
+          # Set step outputs, to reference later in the job outputs.
+          echo "::set-output name=commit::$COMMIT"
+          echo "::set-output name=dist-tag::$DIST_TAG"
+          echo "::set-output name=tag::$TAG"
+
     # Set outputs at the job level, to reference in other jobs.
     outputs:
       commit: ${{ steps.set-env-vars.outputs.commit }}
