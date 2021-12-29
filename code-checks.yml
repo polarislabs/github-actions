@@ -1,0 +1,108 @@
+name: Code Checks
+
+on:
+  pull_request:
+
+env:
+  NODE_ENV: development
+  CI: true
+
+jobs:
+  code-checks:
+    name: Lint and test
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+      - name: Setup Node
+        uses: actions/setup-node@v2
+        with:
+          registry-url: https://npm.pkg.github.com/
+          scope: "@polarislabs"
+          node-version-file: ".nvmrc"
+      - name: Install dependencies
+        run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+      - name: Lint
+        run: npm run lint
+      - name: Test
+        run: npm run test
+      - name: Check if this is a package
+        id: check-if-package
+        continue-on-error: true
+        run: |
+          if jq -e .publishConfig package.json; then
+            echo 'Found `publishConfig` in package.json. Publishing a beta package.'
+          else
+            echo 'No `publishConfig` found in package.json. Not publishing a beta package.'
+            exit 1
+          fi
+      - name: Set environment variables
+        if: steps.check-if-package.outcome == 'success'
+        id: set-env-vars
+        run: |
+          COMMIT=$(echo ${{ github.event.pull_request.head.sha }} | cut -c 1-7)
+          PR=pr${{ github.event.number }}
+          VERSION=$(jq --raw-output .version package.json)
+
+          # Make a package number in the format: 0.1.0-pr1-abcd123
+          TAG=$VERSION-$PR-$COMMIT
+
+          # Set step outputs, to reference later in the job outputs.
+          echo "::set-output name=commit::$COMMIT"
+          echo "::set-output name=dist-tag::$PR"
+          echo "::set-output name=tag::$TAG"
+      - name: Publish beta package
+        if: steps.check-if-package.outcome == 'success'
+        run: |
+          # Bump the version in the package.json and package-lock.json, but don't commit it.
+          npm version --no-git-tag-version ${{ steps.set-env-vars.outputs.tag }}
+
+          # Then publish the tag and dist-tag to Github Packages.
+          echo "Publishing with:"
+          echo "  tag: ${{ steps.set-env-vars.outputs.tag }}"
+          echo "  dist-tag: ${{ steps.set-env-vars.outputs.dist-tag }}"
+
+          npm publish --tag ${{ steps.set-env-vars.outputs.dist-tag }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # Set outputs at the job level, to reference in other jobs.
+    outputs:
+      commit: ${{ steps.set-env-vars.outputs.commit }}
+      dist-tag: ${{ steps.set-env-vars.outputs.dist-tag }}
+      tag: ${{ steps.set-env-vars.outputs.tag }}
+      published-beta: steps.check-if-package.outcome == 'success'
+
+  comment:
+    name: Comment with the beta package info
+    needs: code-checks
+    if: needs.code-checks.outputs.published-beta
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Find Comment
+        uses: peter-evans/find-comment@v1
+        id: find-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: "github-actions[bot]"
+          body-includes: Code Checks just completed successfully
+      - name: Create or update comment
+        uses: peter-evans/create-or-update-comment@v1
+        with:
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            Code Checks just completed successfully, and a beta package was published. 🎉
+
+            The code at commit ${{ needs.code-checks.outputs.commit }} was published with the tag `${{ needs.code-checks.outputs.tag }}` and the dist-tag `${{ needs.code-checks.outputs.dist-tag }}`.
+
+            You can install this beta and all others auto-published in this PR by referring to the dist-tag:
+
+            ```
+            npm install @${{ github.repository }}@${{ needs.code-checks.outputs.dist-tag }}
+            ```
+          edit-mode: replace
