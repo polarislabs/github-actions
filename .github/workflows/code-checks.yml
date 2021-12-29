@@ -81,7 +81,7 @@ jobs:
   comment:
     name: Comment with the beta package info
     needs: code-checks
-    if: needs.code-checks.outputs.published-beta
+    if: needs.code-checks.outputs.published-beta == true
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
