@@ -37,6 +37,7 @@ jobs:
           echo "  tag: $TAG"
           echo "  dist-tag: $DIST_TAG"
 
+          npm run build
           npm publish --tag $DIST_TAG
 
           # Set step outputs, to reference later in the job outputs.
