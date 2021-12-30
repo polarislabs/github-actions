@@ -16,6 +16,10 @@ jobs:
           registry-url: https://npm.pkg.github.com/
           scope: "@polarislabs"
           node-version-file: ".nvmrc"
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
       - name: Publish beta package
         id: publish-beta-package
         env:
@@ -37,7 +41,6 @@ jobs:
           echo "  tag: $TAG"
           echo "  dist-tag: $DIST_TAG"
 
-          npm run build
           npm publish --tag $DIST_TAG
 
           # Set step outputs, to reference later in the job outputs.
