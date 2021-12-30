@@ -8,6 +8,14 @@ jobs:
     name: Publish
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+      - name: Setup Node
+        uses: actions/setup-node@v2
+        with:
+          registry-url: https://npm.pkg.github.com/
+          scope: "@polarislabs"
+          node-version-file: ".nvmrc"
       - name: Publish beta package
         id: publish-beta-package
         env:
