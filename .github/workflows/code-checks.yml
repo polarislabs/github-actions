@@ -31,4 +31,9 @@ jobs:
       - name: Lint
         run: npm run lint
       - name: Test
-        run: npm run test
+        run: |
+          if jq -e .scripts.test package.json; then
+            npm run test
+          else
+            echo "No tests to run."
+          fi
