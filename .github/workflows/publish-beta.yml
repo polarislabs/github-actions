@@ -2,6 +2,9 @@ name: Publish beta package
 
 on:
   workflow_call:
+    secrets:
+      NODE_AUTH_TOKEN:
+        required: true
 
 jobs:
   publish:
